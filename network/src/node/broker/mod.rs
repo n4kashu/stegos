@@ -202,6 +202,7 @@ impl Future for BrokerService {
                             self.unicast_consumers.push(consumer);
                         }
                         PubsubMessage::SendUnicast { to, data } => {
+                            debug!("Sending unicast message to: {}", to);
                             let new_topic = floodsub::TopicBuilder::new(UNICAST_TOPIC).build();
                             let msg = encode_unicast(self.local_pkey.clone(), to, data);
 
@@ -214,9 +215,14 @@ impl Future for BrokerService {
 
                         if m.topics.iter().any(|t| t == unicast_topic_hash) {
                             match decode_unicast(m.data.clone()) {
-                                Ok((_from, to, data)) => {
+                                Ok((from, to, data)) => {
                                     // send unicast message upstream
                                     if to == self.local_pkey {
+                                        debug!(
+                                            "Received unicast message from: {}\n\tdata: {}",
+                                            from,
+                                            String::from_utf8_lossy(&data)
+                                        );
                                         self.unicast_consumers.retain({
                                             move |c| {
                                                 if let Err(e) = c.unbounded_send(data.clone()) {
